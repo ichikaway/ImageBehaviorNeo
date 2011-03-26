@@ -1,4 +1,68 @@
 <?php
+/**
+ * ImageBehaviorNeo
+ *  @Author: Yasushi Ichikawa (Twitter @ichikaway)
+ *  https://github.com/ichikaway/ImageBehaviorNeo
+ *    
+ *  My Contribution:
+ *   1. can set any upload directory and file path you want.
+ *   2. add Validation rules
+ *
+ * 
+ *  Origin of this behavior is written by By Skiedr.
+ *    @author Yevgeny Tomenko aka SkieDr 
+ *    http://bakery.cakephp.org/articles/skiedr/2007/08/28/actas-image-column-behavior
+ *
+ *  This file is forked from @syuhari github (He applies some patches)
+ *    https://github.com/syuhari/ImageBehavior
+ *
+ */
+
+/**
+ * ----------How to use--------------------
+ *  if you use the following model and  save the record(id:20, bar_id:3),
+ *   file path is "webroot/upload/foodir/3/20.jpg".
+ *
+ *
+ * class FooImage extends AppModel {
+ *
+ *  public $actsAs = array(
+ *     'Image'=>array(
+ *       'baseDir' => 'upload/',  <- webroot/upload/
+ *       'modelName' => 'foodir',  <- webroot/upload/foodir/
+ *       'separatedir' => 'bar_id',  <- set colum name of DB
+ *       'filenameKey' => 'id',  <- set colum name of DB
+ *
+ *        'fields'=>array(
+ *         'image'=>array(
+ *           'thumbnail'=>array('create'=>true),
+ *           'resize'=>array(
+ *             'width'=>'200','height'=>'200',
+ *             'aspect'=>true,'allow_enlarge'=>true,
+ *             ),
+ *           'versions'=>array(
+ *             array(
+ *           	'prefix'=>'small','width'=>'70','height'=>'70',
+ *               'aspect'=>true,'allow_enlarge'=>true,
+ *             ),
+ *             )))));
+ *
+ *
+ *  public $validate = array(
+ *     'image' => array(
+ *      array(
+ *         'rule' => array('validationFileSize', 3000000), //3M
+ *         'message' => 'File size is over',
+ *         ),
+ *       array(
+ *         'rule' => array('validationFileFormat'),
+ *         'message' => 'You can upload only image files',
+ *         ),
+ *       ),
+ *     );
+ *
+ *
+ */
 
 class ImageBehavior extends ModelBehavior {
 
@@ -7,12 +71,36 @@ class ImageBehavior extends ModelBehavior {
 	function setup(&$model, $config = array()) {
 		$this->imageSetup($model, $config);
 	}
-	
+
 	function imageSetup(&$model, $config = array()) {
 		$settings = Set::merge(array(
-		'baseDir'=> '',
-		), $config);
-		
+					'baseDir'=> '',
+					), $config);
+
+		if(empty($settings['baseDir'])) {
+			$this->settings['baseDir'] = IMAGES_URL;
+		}else {
+			$this->settings['baseDir'] = $settings['baseDir'];
+			unset($settings['baseDir']);
+		}
+
+		if(empty($settings['modelName'])) {
+			$this->settings['modelName'] = Inflector::camelize($model->name); 
+		} else {
+			$this->settings['modelName'] = $settings['modelName'];
+			unset( $settings['modelName']);
+		}
+
+		if(!empty($settings['separatedir'])) {
+			$this->settings['separatedir'] = $settings['separatedir'];
+			unset($settings['separatedir']);
+		}
+		if(!empty($settings['filenameKey'])) {
+			$this->settings['filenameKey'] = $settings['filenameKey'];
+			unset($settings['filenameKey']);
+		}
+
+
 		if (!isset($settings['fields'])) $settings['fields']=array();
 		$fields=array();
 		foreach($settings['fields'] as $key=>$value) {
@@ -46,6 +134,7 @@ class ImageBehavior extends ModelBehavior {
 		$settings['fields']=$fields;
 		
 		$this->settings[$model->name] = $settings;
+
 	}
 	
 	/**
@@ -129,6 +218,13 @@ class ImageBehavior extends ModelBehavior {
 			$folderName = $this->__getFolder($model, $record);
 			$ext=$this->decodeContent($value);
 			$fileName=$field .'.'. $ext;
+
+
+			if(!empty($this->settings['filenameKey']) && !empty($record)) {
+				$fileName = $record[$this->settings['filenameKey']] . '.' . $ext;
+			}
+
+
 			$result['path']=$folderName.$fileName;
 			
 			$thumb=$fields[$field]['thumbnail'];
@@ -189,6 +285,7 @@ class ImageBehavior extends ModelBehavior {
 	      "image/x-png" => "png",
 	      "image/jpg" => "jpg",
 	      "image/png" => "png",
+
 	      "application/x-shockwave-flash" => "swf",
 	      "application/pdf" => "pdf",
 	      "application/pgp-signature" => "sig",
@@ -221,6 +318,7 @@ class ImageBehavior extends ModelBehavior {
 	      "video/x-msvideo" => "avi",
 	      "video/x-ms-asf" => "asf",
 	      "video/x-ms-wmv" => "wmv"
+
 		);
 		if (isset($contentsMaping[$content]))
 			return $contentsMaping[$content];
@@ -250,11 +348,22 @@ class ImageBehavior extends ModelBehavior {
 	
 	function __getFolder(&$model, $record) {
 		extract($this->settings[$model->name]);
-		return  Inflector::camelize($model->name) .'/'. $record[$model->primaryKey] . '/';
+
+		$separatedir = $record[$model->primaryKey];
+		if(!empty($this->settings['separatedir'])){
+			$separatedir = $record[$this->settings['separatedir']];
+		}
+
+		return  $this->settings['modelName'] .'/'. $separatedir . '/';
 	}
 	function __getFullFolder(&$model, $field) {
 		extract($this->settings[$model->name]);
-		return  WWW_ROOT . IMAGES_URL. Inflector::camelize($model->name) .DS. $model->id .DS;
+
+		$separatedir = $model->id;
+		if(!empty($this->settings['separatedir']) && !empty($model->data[$model->alias])){
+			$separatedir = $model->data[$model->alias][$this->settings['separatedir']];
+		}
+		return  WWW_ROOT . $this->settings['baseDir'] . $this->settings['modelName'] .DS. $separatedir .DS;
 	}
 	
 	function __saveFile(&$model, $field, $fileData) {
@@ -262,6 +371,15 @@ class ImageBehavior extends ModelBehavior {
 		$folderName = $this->__getFullFolder($model, $field);
 		$ext=$this->decodeContent($this->__getContent($fileData));
 		$fileName=$field .'.'. $ext;
+
+		if(!empty($this->settings['filenameKey']) && !empty($model->data[$model->name])) {
+			if($this->settings['filenameKey'] === 'id') {
+				$fileName = $model->id . '.' . $ext;
+			} else {
+				$fileName = $model->data[$model->name][$this->settings['filenameKey']] . '.' . $ext;
+			}
+		}
+
 
 		uses ('folder'); 
 		uses ('file'); 
@@ -361,8 +479,10 @@ class ImageBehavior extends ModelBehavior {
         } 
          
         if (!$cached) { 
-            $resize = ($size[0] > $width || $size[1] > $height) || ($size[0] < $width || $size[1] < $height || ($fieldParams['allow_enlarge']===false)); 
-        } else { 
+					$resize = ($size[0] > $width || $size[1] > $height) 
+						|| ($size[0] < $width || $size[1] < $height || ($fieldParams['allow_enlarge']===false))  
+						|| ($size[0] == $width || $size[1] == $height); 
+				} else { 
             $resize = false; 
         } 
          
@@ -381,6 +501,75 @@ class ImageBehavior extends ModelBehavior {
          
     } 
 
-	
+		/** 
+		 * Validation file format
+		 */
+		public function validationFileFormat($model, $image) {
+
+			$contentsMaping=array(
+					"image/gif" => "gif",
+					"image/jpeg" => "jpg",
+					"image/pjpeg" => "jpg",
+					"image/x-png" => "png",
+					"image/jpg" => "jpg",
+					"image/png" => "png",
+					/*
+					"application/x-shockwave-flash" => "swf",
+					"application/pdf" => "pdf",
+					"application/pgp-signature" => "sig",
+					"application/futuresplash" => "spl",
+					"application/msword" => "doc",
+					"application/postscript" => "ps",
+					"application/x-bittorrent" => "torrent",
+					"application/x-dvi" => "dvi",
+					"application/x-gzip" => "gz",
+					"application/x-ns-proxy-autoconfig" => "pac",
+					"application/x-shockwave-flash" => "swf",
+					"application/x-tgz" => "tar.gz",
+					"application/x-tar" => "tar",
+					"application/zip" => "zip",
+					"audio/mpeg" => "mp3",
+					"audio/x-mpegurl" => "m3u",
+					"audio/x-ms-wma" => "wma",
+					"audio/x-ms-wax" => "wax",
+					"audio/x-wav" => "wav",
+					"image/x-xbitmap" => "xbm",             
+					"image/x-xpixmap" => "xpm",             
+					"image/x-xwindowdump" => "xwd",             
+					"text/css" => "css",             
+					"text/html" => "html",                          
+					"text/javascript" => "js",
+					"text/plain" => "txt",
+					"text/xml" => "xml",
+					"video/mpeg" => "mpeg",
+					"video/quicktime" => "mov",
+					"video/x-msvideo" => "avi",
+					"video/x-ms-asf" => "asf",
+					"video/x-ms-wmv" => "wmv"
+					*/
+
+					);
+
+			$img_type = $image['image']['type'];
+
+			if(!empty($contentsMaping[$img_type])) {
+				return true;
+			}
+			return false;
+
+		}
+
+		/** 
+		 * Validation file size
+		 */
+		public function validationFileSize($model, $image, $max) {
+
+			$img_size = $image['image']['size'];
+			if(0 < $img_size && $img_size <= $max) {
+				return true;
+			}
+			return false;
+
+		}
 }	
 ?>
