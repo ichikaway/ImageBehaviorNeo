@@ -30,8 +30,8 @@
  *     'Image'=>array(
  *       'baseDir' => 'upload/',  <- webroot/upload/
  *       'modelName' => 'foodir',  <- webroot/upload/foodir/
- *       'separatedir' => 'bar_id',  <- set colum name of DB
- *       'filenameKey' => 'id',  <- set colum name of DB
+ *       'separatedir' => 'bar_id',  <- set column name of DB
+ *       'filenameKey' => 'id',  <- set column name of DB
  *
  *        'fields'=>array(
  *         'image'=>array(
