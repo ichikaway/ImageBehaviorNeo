@@ -1,19 +1,14 @@
 
-  ImageBehaviorNeo
-   @Author: Yasushi Ichikawa (Twitter @ichikaway)
-   https://github.com/ichikaway/ImageBehaviorNeo
- 
-  My Contribution:
+ImageBehaviorNeo
+ Add some functions to origin ImageBehavior SkieDr made.
    1. can set any upload directory and file path you want.
-    2. add Validation rules
+   2. add Validation rules
  
  
-   Origin of this behavior is written by By Skiedr.
-     @author Yevgeny Tomenko aka SkieDr
-     http://bakery.cakephp.org/articles/skiedr/2007/08/28/actas-image-column-behavior
+ Origin of this behavior is written by By Skiedr.
+    @author Yevgeny Tomenko aka SkieDr
+    http://bakery.cakephp.org/articles/skiedr/2007/08/28/actas-image-column-behavior
  
-   This file is forked from @syuhari github (He applies some patches)
-     https://github.com/syuhari/ImageBehavior
  
  
 
